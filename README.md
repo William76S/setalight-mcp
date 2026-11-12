@@ -4,7 +4,7 @@
 
 ## 中文
 
-用于 **macOS / set.a.light 3D v2.5** 的本地 MCP 适配器。通过标准 stdio 连接 Claude Desktop、Claude Code 等支持 MCP 的客户端，提供窗口截图、鼠标和键盘操作。
+用于 **macOS / set.a.light 3D v2.5** 的本地 MCP 适配器。通过标准 stdio 连接 Codex、Claude Desktop、Claude Code 等支持 MCP 的客户端，提供窗口截图、鼠标和键盘操作。
 
 这是独立的非官方项目。它通过软件界面操作，不是 set.a.light 内部场景 API；不会直接解析或改写 `.set` 工程。
 
@@ -78,6 +78,27 @@ claude mcp get setalight
 
 也可在 Claude Code 中通过 `/mcp` 查看连接状态。配置使用绝对路径，并通过参数列表传递给 Python，支持含空格的安装目录。
 
+### Codex
+
+生成适用于当前安装位置的 TOML 配置：
+
+```sh
+python3 server.py --config codex
+```
+
+将输出的 `[mcp_servers.setalight]` 配置合并到 `~/.codex/config.toml`，保留其他已有配置；如果已经存在同名条目，更新该条目，不要重复添加。配置包含 Python 和脚本的绝对路径，以及 150 秒工具超时，以覆盖原生助手最长 120 秒的调用。配置生成命令只打印内容，不修改客户端设置。
+
+Codex CLI、IDE 扩展以及使用同一 Codex 主机配置的桌面客户端可使用这份配置。重新启动对应客户端，并通过 `/mcp` 查看连接状态。也可在终端检查：
+
+```sh
+codex mcp get setalight
+codex mcp list
+```
+
+如果偏好 CLI 注册方式，可运行 `python3 server.py --config codex-cli`，检查并执行输出的 `codex mcp add` 命令。该方式使用 Codex 的默认超时；需要较长截图或批处理调用时，在 `[mcp_servers.setalight]` 下设置 `tool_timeout_sec = 150`。
+
+必须使用运行在这台 Mac 上的本地会话。单纯在 Codex Cloud 中添加本地路径无法启动这台 Mac 上的助手。组织管理策略也可能限制可用 MCP 服务。
+
 ### 工具
 
 | 工具 | 功能 |
@@ -124,7 +145,7 @@ screenY = originY + imageY * pointsPerPixelY
 | `running: false` | 手动启动 set.a.light 3D v2.5。 |
 | 没有可用显示器或截图超时 | 解锁 Mac、接好显示器，并检查屏幕录制授权。 |
 | 输入被拒绝 | 检查辅助功能授权及窗口遮挡，重新截图定位。 |
-| Claude 无法启动服务 | 重新生成配置，核对 Python 和 `server.py` 的绝对路径，然后重启客户端。 |
+| Codex 或 Claude 无法启动服务 | 重新生成配置，核对 Python 和 `server.py` 的绝对路径，然后重启客户端。 |
 | 修改未生效 | 先核对当前界面与字段焦点，不要直接重放整批动作。 |
 
 ## English
@@ -135,8 +156,10 @@ Build with `sh build.sh`, then run `python3 server.py --doctor`. Python 3.10+ an
 
 Use `python3 server.py --config claude-desktop` to print the configuration entry for Claude Desktop. Merge it with existing `mcpServers` entries and restart the client. Use `python3 server.py --config claude-code` to print the corresponding Claude Code registration command. Neither command edits client settings.
 
+For Codex, run `python3 server.py --config codex` and merge the resulting `[mcp_servers.setalight]` table into `~/.codex/config.toml`. Update an existing table instead of adding a duplicate. This includes absolute executable paths and a 150-second tool timeout. Restart your local Codex client and check `/mcp` or `codex mcp get setalight`. The CLI, IDE extension, and desktop clients using the same Codex host share this configuration. Alternatively, `--config codex-cli` prints a registration command using the client's default timeout. These commands only print configuration; they do not change client settings.
+
 Accessibility permission enables input; Screen Recording separately enables screenshots. Only the user grants these permissions. The adapter restricts input and capture to the running application `com.elixxier.SALv2`, although the underlying macOS permissions are broader. It opens no network connections; the connected client may send returned screenshots to its model provider.
 
-Screenshots include image-to-screen coordinate mapping. Observe the current image before input and verify the result afterward. Interrupted input can be partly applied; do not blindly replay a batch. The Mac must remain unlocked with an active display. Claude Desktop and local Claude Code can use this stdio service; the Claude website and remote connectors cannot directly launch the local helper.
+Screenshots include image-to-screen coordinate mapping. Observe the current image before input and verify the result afterward. Interrupted input can be partly applied; do not blindly replay a batch. The Mac must remain unlocked with an active display. Local Codex clients, Claude Desktop, and local Claude Code can use this stdio service; cloud sessions, the Claude website, and remote connectors cannot directly launch the local helper.
 
-References: [Claude Desktop local MCP setup](https://modelcontextprotocol.io/docs/develop/connect-local-servers), [Claude Code MCP setup](https://code.claude.com/docs/en/mcp), [MCP stdio transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports).
+References: [Codex MCP setup — official OpenAI documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=cli), [Claude Desktop local MCP setup](https://modelcontextprotocol.io/docs/develop/connect-local-servers), [Claude Code MCP setup](https://code.claude.com/docs/en/mcp), [MCP stdio transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports).

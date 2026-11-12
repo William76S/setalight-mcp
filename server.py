@@ -15,7 +15,7 @@ import subprocess
 import sys
 import tempfile
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 ROOT = Path(__file__).resolve().parent
 HELPER = ROOT / "SetALight MCP.app" / "Contents" / "MacOS" / "setalight-input"
 PROTOCOLS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
@@ -28,8 +28,8 @@ for Unity, then screenshot to verify. An event sent is not proof that a setting 
 Do not automatically retry failed input: it may be partly applied. Re-observe first.
 Use short batches only for known, deterministic steps within one already-visible control.
 Accessibility enables input. Screen Recording separately enables screenshots. Never call
-request_access without explicit user approval for that specific permission. No prompts
-are triggered by status/screenshot. The server does not edit .set files or expose a scene
+request_access without explicit user approval for that specific permission. No permission
+dialogs are triggered by status/screenshot. The server does not edit .set files or expose a scene
 API. Save and render through the app UI. Avoid concurrent human mouse/keyboard input."""
 
 
@@ -48,8 +48,8 @@ POINT = {"x": NUMBER, "y": NUMBER}
 DURATION = {"type": "number", "minimum": 20, "maximum": 1000}
 BATCH_NAMES = ("focus", "click", "click_hid", "scroll_hid", "drag_hid", "keypress", "type_text")
 TOOLS = [
-    tool("status", "Read running state, permissions, visible window bounds and displays. Works when set.a.light is closed. No prompts or focus changes.", read_only=True, idempotent=True),
-    tool("screenshot", "Capture only one visible set.a.light window as an inline PNG. Defaults to the largest window; use windowId from status for a dialog. Requires existing Screen Recording permission; never prompts. Returns exact image-to-screen coordinate mapping. Does not focus the app.",
+    tool("status", "Read running state, permissions, visible window bounds and displays. Works when set.a.light is closed. No permission dialogs or focus changes.", read_only=True, idempotent=True),
+    tool("screenshot", "Capture only one visible set.a.light window as an inline PNG. Defaults to the largest window; use windowId from status for a dialog. Requires existing Screen Recording permission; never requests access. Returns exact image-to-screen coordinate mapping. Does not focus the app.",
          {"windowId": {"type": "integer", "minimum": 1, "maximum": 4294967295}, "maxWidth": {"type": "integer", "minimum": 640, "maximum": 2560}}, read_only=True, idempotent=True),
     tool("request_access", "Ask macOS for the named permission ONLY after explicit user approval for SetALight MCP at action time. Accessibility enables input; screen_recording enables window screenshots. confirmed must be true. This requests, never grants, access.",
          {"confirmed": {"type": "boolean", "enum": [True]}, "permission": {"type": "string", "enum": ["accessibility", "screen_recording"]}}, ("confirmed",)),
@@ -272,14 +272,26 @@ def client_config(client):
     script = str(ROOT / "server.py")
     if client == "claude-code":
         return shlex.join(["claude", "mcp", "add", "--transport", "stdio", "--scope", "user", "setalight", "--", executable, script])
-    return json.dumps({"mcpServers": {"setalight": {"command": executable, "args": [script]}}}, indent=2)
+    if client == "codex-cli":
+        return shlex.join(["codex", "mcp", "add", "setalight", "--", executable, script])
+    if client == "codex":
+        return "\n".join([
+            "[mcp_servers.setalight]",
+            "command = " + json.dumps(executable, ensure_ascii=False),
+            "args = " + json.dumps([script], ensure_ascii=False),
+            "startup_timeout_sec = 10",
+            "tool_timeout_sec = 150",
+        ])
+    if client == "claude-desktop":
+        return json.dumps({"mcpServers": {"setalight": {"command": executable, "args": [script]}}}, indent=2)
+    raise ValueError("Unknown MCP client")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--call", choices=BY_NAME, help="Call one tool; no MCP session required")
-    modes.add_argument("--config", choices=("claude-desktop", "claude-code"), help="Print configuration; does not change client settings")
+    modes.add_argument("--config", choices=("claude-desktop", "claude-code", "codex", "codex-cli"), help="Print configuration; does not change client settings")
     modes.add_argument("--doctor", action="store_true", help="Read-only platform/build/permission diagnostics")
     modes.add_argument("--version", action="version", version=VERSION)
     parser.add_argument("--args", default="{}", help="Tool arguments as a JSON object")

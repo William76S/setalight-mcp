@@ -45,7 +45,7 @@ func status() throws -> [String: Any] {
     return ["bundleId": targetBundle, "running": running != nil,
             "pid": running?.processIdentifier ?? 0, "frontmost": front(),
             "accessibilityTrusted": AXIsProcessTrusted(), "eventPostingAllowed": CGPreflightPostEventAccess(),
-            "screenRecordingAllowed": CGPreflightScreenCaptureAccess(), "helperVersion": "0.3.0",
+            "screenRecordingAllowed": CGPreflightScreenCaptureAccess(), "helperVersion": "0.3.1",
             "coordinateSystem": "global Quartz screen points; origin top-left of primary display",
             "windows": running == nil ? [] : try windows(), "displays": displays()]
 }
@@ -65,7 +65,7 @@ func requestAccess(_ p: [String: Any]) throws -> [String: Any] {
     }
     return ["permission": permission, "granted": granted, "applicationName": "SetALight MCP",
             "applicationBundleId": "local.setalight.mcp",
-            "note": "macOS controls the prompt; only the user can grant access."]
+            "note": "macOS controls the permission dialog; only the user can grant access."]
 }
 // The run loop keeps AppKit responsive while ScreenCaptureKit returns asynchronously.
 func waitFor<T>(_ operation: (@escaping (Result<T, Error>) -> Void) -> Void) throws -> T {
@@ -83,7 +83,7 @@ func waitFor<T>(_ operation: (@escaping (Result<T, Error>) -> Void) -> Void) thr
 func screenshot(_ p: [String: Any]) throws -> [String: Any] {
     try assertDisplay()
     guard CGPreflightScreenCaptureAccess() else {
-        throw InputError("Screen Recording permission is required for screenshots; no prompt was made. Ask the user before request_access(permission: screen_recording).")
+        throw InputError("Screen Recording permission is required for screenshots; no access was requested. Ask the user before request_access(permission: screen_recording).")
     }
     let pid = try app().processIdentifier
     let content: SCShareableContent = try waitFor { done in
@@ -144,7 +144,7 @@ func screenshot(_ p: [String: Any]) throws -> [String: Any] {
             "imageBase64": png.base64EncodedString()]
 }
 func fitWindow() throws -> [String: Any] {
-    guard AXIsProcessTrusted() else { throw InputError("Accessibility permission is required; no permission prompt was made") }
+    guard AXIsProcessTrusted() else { throw InputError("Accessibility permission is required; no access was requested") }
     try focus()
     let pid = try app().processIdentifier
     let application = AXUIElementCreateApplication(pid)
@@ -192,7 +192,7 @@ func validatePoint(_ point: CGPoint) throws {
 func assertDisplay() throws {
     guard !displays().isEmpty else { throw InputError("No active display session. Unlock the Mac and connect a display before retrying.") }
 }
-func assertPosting() throws { try assertDisplay(); if !CGPreflightPostEventAccess() { throw InputError("macOS event-posting permission is unavailable; no prompt or settings change was made") } }
+func assertPosting() throws { try assertDisplay(); if !CGPreflightPostEventAccess() { throw InputError("macOS event-posting permission is unavailable; no access was requested or settings changed") } }
 func number(_ p: [String: Any], _ name: String) throws -> Double {
     guard let n = p[name] as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID(), n.doubleValue.isFinite else { throw InputError("Expected finite number: \(name)") }
     return n.doubleValue
@@ -229,7 +229,7 @@ func clickHID(_ p: [String: Any], focusBefore: Bool = true) throws -> [String: A
     let point = CGPoint(x: try number(p, "x"), y: try number(p, "y"))
     let duration = (p["durationMs"] == nil ? 120 : try number(p, "durationMs")) / 1000
     guard duration >= 0.02 && duration <= 1 else { throw InputError("durationMs must be 20...1000") }
-    guard AXIsProcessTrusted() else { throw InputError("Accessibility access is required for hit testing; no prompt was made") }
+    guard AXIsProcessTrusted() else { throw InputError("Accessibility access is required for hit testing; no access was requested") }
     try assertPosting()
     if focusBefore { try focus(); try raiseTargetMainWindow(); pause(0.10) }
     else { try assertFront() }
@@ -259,7 +259,7 @@ func scrollHID(_ p: [String: Any], focusBefore: Bool = true) throws -> [String: 
     let point = CGPoint(x: try number(p, "x"), y: try number(p, "y"))
     let delta = try number(p, "deltaY")
     guard delta.rounded() == delta, delta != 0, abs(delta) <= 2000 else { throw InputError("deltaY must be a nonzero integer from -2000 to 2000; positive scrolls up, negative scrolls down") }
-    guard AXIsProcessTrusted() else { throw InputError("Accessibility access is required for hit testing; no prompt was made") }
+    guard AXIsProcessTrusted() else { throw InputError("Accessibility access is required for hit testing; no access was requested") }
     try assertPosting()
     if focusBefore { try focus(); try raiseTargetMainWindow(); pause(0.10) }
     else { try assertFront() }
@@ -285,7 +285,7 @@ func dragHID(_ p: [String: Any], focusBefore: Bool = true) throws -> [String: An
     let end = CGPoint(x: try number(p, "toX"), y: try number(p, "toY"))
     let duration = (p["durationMs"] == nil ? 500 : try number(p, "durationMs")) / 1000
     guard duration >= 0.2 && duration <= 2 else { throw InputError("durationMs must be 200...2000") }
-    guard AXIsProcessTrusted() else { throw InputError("Accessibility access is required for hit testing; no prompt was made") }
+    guard AXIsProcessTrusted() else { throw InputError("Accessibility access is required for hit testing; no access was requested") }
     try assertPosting()
     if focusBefore { try focus(); try raiseTargetMainWindow(); pause(0.10) }
     else { try assertFront() }
