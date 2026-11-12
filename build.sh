@@ -7,7 +7,7 @@ if [ "$(uname -s)" != Darwin ]; then
 fi
 command -v xcrun >/dev/null 2>&1 || { echo "Install Xcode Command Line Tools first." >&2; exit 1; }
 mkdir -p build
-xcrun swiftc -O -swift-version 5 -target "$(uname -m)-apple-macosx14.0" -framework AppKit -framework ApplicationServices -framework ScreenCaptureKit -module-cache-path "${TMPDIR:-/tmp}/setalight-swift-module-cache" SetALightInput.swift -o build/setalight-input
+xcrun swiftc -O -swift-version 5 -target "$(uname -m)-apple-macosx14.0" -framework AppKit -framework ApplicationServices -framework ScreenCaptureKit -framework Vision -module-cache-path "${TMPDIR:-/tmp}/setalight-swift-module-cache" SetALightInput.swift -o build/setalight-input
 mkdir -p "SetALight MCP.app/Contents/MacOS"
 cp build/setalight-input "SetALight MCP.app/Contents/MacOS/setalight-input"
 cat > "SetALight MCP.app/Contents/Info.plist" <<'PLIST'
@@ -21,8 +21,8 @@ cat > "SetALight MCP.app/Contents/Info.plist" <<'PLIST'
     <key>CFBundleIdentifier</key><string>local.setalight.mcp</string>
     <key>CFBundleExecutable</key><string>setalight-input</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.3.1</string>
-    <key>CFBundleVersion</key><string>4</string>
+    <key>CFBundleShortVersionString</key><string>0.4.0</string>
+    <key>CFBundleVersion</key><string>5</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
